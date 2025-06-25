@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "fire_inc_gold",
   name: "incident_count_by_year",
-  description: "Número de incidentes agrupados por año"
+  description: "Incident Count group by Year"
   tags: ["40"],
 }
 
