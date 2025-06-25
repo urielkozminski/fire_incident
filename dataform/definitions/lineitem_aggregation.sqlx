@@ -1,0 +1,37 @@
+config {
+    type: "table",
+    schema: "dataform",
+    tags: ["poc"],
+    dependencies: ["check_lineitem_not_empty_condition"],
+    dependOnDependencyAssertions: true
+}
+
+SELECT
+  l_returnflag,
+  l_linestatus,
+  SUM(l_quantity) AS sum_qty,
+  SUM(l_extendedprice) AS sum_base_price,
+  SUM(l_extendedprice * (1 - l_discount)) AS sum_disc_price,
+  SUM(l_extendedprice * (1 - l_discount) * (1 + l_tax)) AS sum_charge,
+  AVG(l_quantity) AS avg_qty,
+  AVG(l_extendedprice) AS avg_price,
+  AVG(l_discount) AS avg_disc,
+  COUNT(*) AS count_order,
+  FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%E3S',TIMESTAMP(DATETIME(CURRENT_TIMESTAMP(), 'Asia/Jerusalem'))) AS execution_timestamp
+  -- from a table named 'lineitem'
+FROM
+  ${ref('lineitem')}
+  -- it must follows the rule that
+  --   data in the column named 'l_shipdate' must be less or equal to XXX
+WHERE
+  l_shipdate <= date '1998-12-01' - INTERVAL '90' day
+  -- data with the same 'l_returnflag' and 'l_linestatus' are grouped together.
+  --   calcualte sum, avg, count, such kind of aggregations.
+GROUP BY
+  l_returnflag,
+  l_linestatus
+  -- sort the results with increasing order of 'l_returnflag';
+  --   break ties using 'l_linestatus'.
+ORDER BY
+  l_returnflag,
+  l_linestatus

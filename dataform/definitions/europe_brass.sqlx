@@ -1,0 +1,69 @@
+config {
+    type: "table",
+    schema: "dataform",
+    tags: ["200"]
+}
+
+SELECT
+  s_acctbal,
+  s_name,
+  n_name,
+  p_partkey,
+  p_mfgr,
+  s_address,
+  s_phone,
+  s_comment,
+  format_timestamp('%Y-%m-%d %H:%M:%E3S',TIMESTAMP(DATETIME(CURRENT_TIMESTAMP(), 'Asia/Jerusalem'))) as execution_timestamp,
+  CURRENT_TIMESTAMP() as now
+       
+FROM
+  ${ref('part')} part
+JOIN
+  ${ref('partsupp')} partsupp
+ON
+  p_partkey = ps_partkey
+JOIN
+  ${ref('supplier')} supplier
+ON
+  s_suppkey = ps_suppkey
+JOIN
+  ${ref('nation')} nation
+ON
+  s_nationkey = n_nationkey
+JOIN
+  ${ref('region')} region
+ON
+  n_regionkey = r_regionkey
+WHERE
+  p_size = 15
+  AND p_type LIKE '%BRASS'
+  AND r_name = 'EUROPE'
+  AND ps_supplycost = (
+  SELECT
+    MIN(ps_supplycost)
+  FROM
+    ${ref('partsupp')} partsupp
+  JOIN
+    ${ref('supplier')} supplier
+  ON
+    s_suppkey = ps_suppkey
+  JOIN
+    ${ref('nation')} nation
+  ON
+    s_nationkey = n_nationkey
+  JOIN
+    ${ref('region')} region
+  ON
+    n_regionkey = r_regionkey
+  WHERE
+    r_name = 'EUROPE'
+    AND partsupp.ps_partkey = part.p_partkey
+    -- Ensuring correlation to the outer query's partkey
+    )
+  ORDER BY
+    s_acctbal DESC,
+    n_name,
+    s_name,
+    p_partkey
+  LIMIT
+    100

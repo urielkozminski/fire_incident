@@ -1,0 +1,17 @@
+config {
+    type: "assertion",
+    name: "check_lineitem_not_empty_condition",
+    tags: ["test"]
+}
+
+
+-- This query should return zero rows if the assertion passes
+SELECT *
+FROM (
+  SELECT count(*) as row_count
+  FROM
+          ${ref('lineitem')}
+  WHERE
+          l_shipdate >= date '1998-12-01' - interval '90' day
+) AS counts
+WHERE row_count <= 0

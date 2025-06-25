@@ -1,0 +1,8 @@
+config {
+    type: "table",
+    schema: "dataform",
+    tags: ["20"]
+}
+
+SELECT
+  1 / 0 AS will_fail
