@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  schema: "fire_inc_gold",
+  name: "incident_count_by_year",
+  description: "Número de incidentes agrupados por año"
+  tags: ["40"],
+}
+
+select
+  incident_year,
+  count(*) as total_incidents
+from
+  ${ref("fire_inc_silver", "fire_incident_with_year")}
+group by
+  incident_year
+order by
+  incident_year

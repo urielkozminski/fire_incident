@@ -1,8 +1,0 @@
-config {
-  type: "table",
-  dependencies: ["first_table","first_view"] 
-}
-
-SELECT *
-FROM
-  ${ref('second_table')}

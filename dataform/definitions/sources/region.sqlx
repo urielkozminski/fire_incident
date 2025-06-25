@@ -1,6 +1,0 @@
-config {
-    type: "declaration",
-    database: "me-sb-dgcp-dpoc-data-pr",
-    schema: "tpch10",
-    name: "region"
-}

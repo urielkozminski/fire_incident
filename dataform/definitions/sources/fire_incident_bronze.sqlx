@@ -1,0 +1,4 @@
+declare({
+  name: "fire_incident",
+  schema: "fire_inc_bronze"
+})

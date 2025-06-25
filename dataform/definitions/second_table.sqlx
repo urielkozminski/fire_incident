@@ -1,9 +1,0 @@
-config {
-    type: "table",
-    dependencies: ["first_table"] 
-}
-
-SELECT
-  *
-FROM
-  ${ref("first_table")}
