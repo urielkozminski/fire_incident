@@ -1,0 +1,8 @@
+ParamID,ParamName,ParamValue,UpdateBy,UpdateDate
+6,import_bucket,fire_incident,Uriel,2025-06-25 08:36:38.768520 UTC
+5,schema_gold,fire_inc_gold,Uriel,2025-06-25 08:36:38.768520 UTC
+2,schema_logs,fire_inc_logs,Uriel,2025-06-25 08:36:38.768520 UTC
+1,schema_processes,fire_inc_processes,Uriel,2025-06-25 08:36:38.768520 UTC
+3,schema_bronze,fire_inc_bronze,Uriel,2025-06-25 08:36:38.768520 UTC
+4,schema_silver,fire_inc_silver,Uriel,2025-06-25 08:36:38.768520 UTC
+7,data_form_repo,dgcp-poc-dataform,Uriel,2025-06-25 13:36:06.577878 UTC

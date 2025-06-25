@@ -1,0 +1,5 @@
+ProcessID,ProcessName,Description,TriggerCron,ProcType,Properties,IsActive,DataFormTags,UpdateBy,UpdateDate
+30,Processing_DAG_fire,,*/10 * * * *,Processig,True,30,,2025-06-25 13:20:45.836031 UTC
+40,Processing_DAG_fire,,*/10 * * * *,Processig,True,40,,2025-06-25 13:17:32.338222 UTC
+10,Import_DAG_fire,,*/45 * * * *,Import,True,,,2025-06-25 11:15:12.998550 UTC
+20,Ingestion_DAG_fire,,*/55 * * * *,Ingestion,True,,,2025-06-25 12:28:02.919118 UTC
