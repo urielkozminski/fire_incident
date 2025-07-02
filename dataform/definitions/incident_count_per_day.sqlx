@@ -1,0 +1,16 @@
+config {
+  type: "table",
+  tags: ["44"],
+  description: "Daily count of incidents per date, referencing dim_time."
+}
+
+SELECT
+  d.date,
+  COUNT(f.incident_number) AS incident_count
+FROM
+  ${ref("fire_incident_stg")} f
+JOIN
+  ${ref("dim_time")} d
+  ON DATE(f.incident_date) = d.date
+GROUP BY
+  d.date

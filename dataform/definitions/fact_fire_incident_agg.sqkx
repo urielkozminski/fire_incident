@@ -1,0 +1,46 @@
+config {
+  type: "table",
+  schema: "fire_inc_silver",
+  name: "dim_time",
+  description: "Aggregated fire incident fact table joined with dim_time and dim_location. 
+                Provides metrics such as incident count, total fire fatalities, and average response time per date and location. 
+                Enables analytical queries across time and geography using the snowflake schema."
+  tags: ["32"],
+}
+
+WITH stg AS (
+  SELECT
+    f.incident_number,
+    f.incident_date,
+    f.city,
+    f.zipcode,
+    f.fire_fatalities,
+    f.arrival_dttm,
+    f.alarm_dttm
+  FROM
+    ${ref("fire_incident_stg")} f
+  WHERE
+    f.incident_date IS NOT NULL
+),
+
+joined AS (
+  SELECT
+    d.date,
+    l.city,
+    l.zipcode,
+    COUNT(s.incident_number) AS incident_count,
+    SUM(CAST(s.fire_fatalities AS INT64)) AS fire_fatalities_total,
+    AVG(TIMESTAMP_DIFF(s.arrival_dttm, s.alarm_dttm, SECOND)) AS avg_response_seconds
+  FROM
+    stg s
+  LEFT JOIN ${ref("dim_time")} d
+    ON DATE(s.incident_date) = d.date
+  LEFT JOIN ${ref("dim_location")} l
+    ON s.city = l.city AND s.zipcode = l.zipcode
+  GROUP BY
+    d.date,
+    l.city,
+    l.zipcode
+)
+
+SELECT * FROM joined

@@ -1,0 +1,20 @@
+config {
+  type: "table",
+  schema: "fire_inc_silver",
+  name: "dim_response_time",
+  description: "Dim Response Time based on Fire Incident STG. Its Needs to Run just right After the Ingestion so Time will be Updated"
+  tags: ["31"],
+}
+
+SELECT
+  id,
+  incident_number,
+  TIMESTAMP_DIFF(arrival_dttm, alarm_dttm, SECOND) AS response_seconds,
+  TIMESTAMP_DIFF(close_dttm, arrival_dttm, SECOND) AS resolution_seconds,
+  TIMESTAMP_DIFF(close_dttm, alarm_dttm, SECOND) AS total_incident_seconds
+FROM
+  ${ref("fire_incident_stg")}
+WHERE
+  alarm_dttm IS NOT NULL
+  AND arrival_dttm IS NOT NULL
+  AND close_dttm IS NOT NULL

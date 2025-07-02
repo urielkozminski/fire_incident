@@ -1,0 +1,6 @@
+config {
+  type: "assertion",
+  assertions: ["unique"]
+}
+
+SELECT date FROM ${ref("dim_time")}

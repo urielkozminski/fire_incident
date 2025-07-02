@@ -1,0 +1,22 @@
+config {
+  type: "table",
+  schema: "fire_inc_silver",
+  name: "dim_location",
+  description: "Dim Location based on Fire Incident STG. Its Needs to Run just right After the Ingestion so Time will be Updated"
+  tags: ["32"],
+}
+
+SELECT
+  DISTINCT
+  city,
+  zipcode,
+  battalion,
+  station_area,
+  neighborhood_district,
+  supervisor_district,
+  point,
+  CONCAT_WS('-', COALESCE(zipcode, ''), COALESCE(city, ''), COALESCE(battalion, '')) AS location_id
+FROM
+  ${ref("fire_incident_stg")}
+WHERE
+  city IS NOT NULL OR zipcode IS NOT NULL

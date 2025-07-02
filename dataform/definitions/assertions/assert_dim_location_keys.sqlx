@@ -1,0 +1,7 @@
+config {
+  type: "assertion",
+  assertions: ["non_null"]
+}
+
+SELECT location_id
+FROM ${ref("dim_location")}
