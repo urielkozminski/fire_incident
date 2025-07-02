@@ -25,6 +25,12 @@ table_config = "JobsConfig"
 system_params = 'SystemParams'
 local_timezone = pytz.timezone('Asia/Jerusalem')
 
+def on_task_success(context):
+    task_id = context['task_instance'].task_id
+    duration = context['task_instance'].duration
+    try_number = context['task_instance'].try_number
+    logging.info(f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})")
+
 def insert_failure_log_into_bq(context, **kwargs):
     """
     Logs the failure of a task to BigQuery.
@@ -390,6 +396,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_gcp_project_id_task
             """
@@ -401,6 +408,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_processid_runid_task
             """
@@ -412,6 +420,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_system_params_task
             """
@@ -423,6 +432,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### import_gcs_to_bq_task
         """
@@ -434,6 +444,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### depuplicated_table_task
         """
@@ -449,6 +460,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_gcp_project_id_task
             """

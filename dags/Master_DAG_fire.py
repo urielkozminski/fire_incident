@@ -23,6 +23,12 @@ table_log ='Logs'
 table_config = "JobsConfig"
 system_params = 'SystemParams'
 
+def on_task_success(context):
+    task_id = context['task_instance'].task_id
+    duration = context['task_instance'].duration
+    try_number = context['task_instance'].try_number
+    logging.info(f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})")
+
 def insert_failure_log_into_bq(context, **kwargs):
     """
     Logs the failure of a task to BigQuery.
@@ -293,6 +299,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### request_data_task
         """
@@ -304,6 +311,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### request_data_task
         """
@@ -319,6 +327,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### write_to_log_start_task
             """
@@ -334,6 +343,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### write_to_log_end_task
             """
@@ -344,7 +354,8 @@ with DAG(
         python_callable=get_jobs_to_trigger,
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
-        on_retry_callback = insert_failure_log_into_bq, 
+        on_retry_callback = insert_failure_log_into_bq,
+        on_success_callback=on_task_success, 
         doc_md="""
         ### get_jobs_to_trigger_task
         """
@@ -356,6 +367,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### trigger_dags_task
         """

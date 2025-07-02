@@ -35,6 +35,12 @@ table_config = "JobsConfig"
 system_params = 'SystemParams'
 local_timezone = pytz.timezone('Asia/Jerusalem')
 
+def on_task_success(context):
+    task_id = context['task_instance'].task_id
+    duration = context['task_instance'].duration
+    try_number = context['task_instance'].try_number
+    logging.info(f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})")
+
 def insert_failure_log_into_bq(context, **kwargs):
     """
     Logs the failure of a task to BigQuery.
@@ -446,6 +452,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_gcp_project_id_task
             """
@@ -461,6 +468,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_gcp_project_id_task
             """
@@ -472,6 +480,7 @@ with DAG(
             provide_context=True,
             on_failure_callback = insert_failure_log_into_bq,
             on_retry_callback = insert_failure_log_into_bq, 
+            on_success_callback=on_task_success,
             doc_md="""
             ### get_system_params_task
             """
@@ -483,6 +492,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### get_processid_runid_task
         """
@@ -493,6 +503,7 @@ with DAG(
         python_callable=fetch_repo_id,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         provide_context=True,
         doc_md="""
         ### Get Proces ID and Run ID Task
@@ -505,7 +516,8 @@ with DAG(
         task_id='create_compilation_result',
         python_callable=create_compilation_result,
         on_failure_callback = insert_failure_log_into_bq,
-        on_retry_callback = insert_failure_log_into_bq, 
+        on_retry_callback = insert_failure_log_into_bq,
+        on_success_callback=on_task_success, 
         provide_context=True,
     )
 
@@ -514,6 +526,7 @@ with DAG(
         python_callable=create_workflow_invocation,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         provide_context=True,
     )
 
@@ -521,7 +534,8 @@ with DAG(
         task_id='check_if_dataform_job_running',
         python_callable=check_if_dataform_job_running,
         on_failure_callback = insert_failure_log_into_bq,
-        on_retry_callback = insert_failure_log_into_bq,  
+        on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success, 
         provide_context=True,
         doc_md="""
         ### Get Proces ID and Run ID Task
@@ -539,6 +553,7 @@ with DAG(
         provide_context=True,
         on_failure_callback = insert_failure_log_into_bq,
         on_retry_callback = insert_failure_log_into_bq, 
+        on_success_callback=on_task_success,
         doc_md="""
         ### write_to_log_end
         """
