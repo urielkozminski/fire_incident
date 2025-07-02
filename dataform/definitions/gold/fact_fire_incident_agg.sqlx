@@ -1,7 +1,7 @@
 config {
   type: "table",
-  schema: "fire_inc_silver",
-  name: "dim_time",
+  schema: "fire_inc_gold",
+  name: "fact_fire_incident_agg",
   description: "Aggregated fire incident fact table joined with dim_time and dim_location. 
                 Provides metrics such as incident count, total fire fatalities, and average response time per date and location. 
                 Enables analytical queries across time and geography using the snowflake schema."

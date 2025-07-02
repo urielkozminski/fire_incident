@@ -1,0 +1,30 @@
+config {
+  type: "table",
+  schema: 'fire_inc_gold',
+  tags: ["44"],
+  description: "Aggregated daily incident count by date, referencing dim_time. Used for reporting and time-series analysis.",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["incident_count"]
+  },
+  postOperations: [
+    "ALTER TABLE ${self()} SET OPTIONS (description = 'Aggregated daily incident count by date. Partitioned by date and clustered by incident_count.')"
+  ]
+}
+
+SELECT
+  d.date,
+  COUNT(f.incident_number) AS incident_count
+FROM
+  ${ref("fire_incident_stg")} f
+JOIN
+  ${ref("dim_time")} d
+    ON DATE(f.incident_date) = d.date
+GROUP BY
+  d.date
+
+
+
+-- postOperations is used to run additional SQL statements right after the table is created.
+-- In this case, we use it to explicitly set or update the table description in BigQuery metadata.
+-- This ensures the description is visible in the BigQuery UI, as the config description field is not always persisted.

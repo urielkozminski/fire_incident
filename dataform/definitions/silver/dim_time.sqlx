@@ -1,0 +1,40 @@
+config {
+  type: "table",
+  schema: 'fire_inc_silver',
+  tags: ["dimension"],
+  description: "Date dimension with static date range from 2010 to 2030, including time-based attributes and holiday flags."
+}
+
+WITH date_range AS (
+  SELECT
+    DATE_ADD(DATE '2010-01-01', INTERVAL day OFFSET) AS date
+  FROM
+    UNNEST(GENERATE_ARRAY(0, 365 * 21)) AS day
+),
+
+dim_time AS (
+  SELECT
+    date,
+    EXTRACT(DAYOFWEEK FROM date) AS day_of_week,
+    EXTRACT(DAY FROM date) AS day_of_month,
+    EXTRACT(WEEK FROM date) AS week,
+    EXTRACT(MONTH FROM date) AS month,
+    EXTRACT(QUARTER FROM date) AS quarter,
+    EXTRACT(YEAR FROM date) AS year,
+    FORMAT_DATE('%B', date) AS month_name,
+    FORMAT_DATE('%A', date) AS day_name,
+    CASE
+      WHEN EXTRACT(DAYOFWEEK FROM date) IN (1, 7) THEN TRUE
+      ELSE FALSE
+    END AS is_weekend,
+    CASE
+      WHEN date IN (
+        DATE '2024-01-01', DATE '2024-12-25', DATE '2024-07-04'  -- Add more as needed
+      ) THEN TRUE
+      ELSE FALSE
+    END AS is_holiday
+  FROM
+    date_range
+)
+
+SELECT * FROM dim_time

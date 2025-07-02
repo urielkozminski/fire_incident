@@ -1,0 +1,31 @@
+config {
+  type: "table",
+  schema: "fire_inc_gold",  -- Ensures the table is created in the correct dataset
+  tags: ["45"],
+  description: "Aggregated total fire-related fatalities per city using fire_incident_stg data.",
+  bigquery: {
+    clusterBy: ["fire_fatalities_total"]
+  },
+  -- postOperations is used to run an additional SQL statement after table creation.
+  -- Here, it explicitly sets the table's description in BigQuery, ensuring the metadata is visible in the UI.
+  postOperations: [
+    "ALTER TABLE ${self()} SET OPTIONS (description = 'Aggregated total fire-related fatalities per city. Clustered by fatality count.')"
+  ]
+}
+
+SELECT
+  f.city,
+  SUM(CAST(f.fire_fatalities AS INT64)) AS fire_fatalities_total,
+  COUNT(f.incident_number) AS incidents_with_fatalities
+FROM
+  ${ref("fire_incident_stg")} f
+WHERE
+  f.city IS NOT NULL
+  AND SAFE_CAST(f.fire_fatalities AS INT64) > 0
+GROUP BY
+  f.city
+
+
+
+-- postOperations is used to run an additional SQL statement after table creation.
+-- Here, it explicitly sets the table's description in BigQuery, ensuring the metadata is visible in the UI.
