@@ -47,6 +47,14 @@ def on_task_success(context):
     log_message("INFO", f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})", context)
 
 def insert_failure_log_into_bq(context, **kwargs):
+    """
+    Logs the failure of a task to BigQuery.
+    This function inserts an error message into the Log table when any task fails.
+    
+    Args:
+    context (dict): The Airflow context, which contains information about the task and exception.
+
+    """
     log_message("ERROR", "Writing error to Log table...", context)
 
     ti = context['task_instance']
@@ -79,6 +87,16 @@ def insert_failure_log_into_bq(context, **kwargs):
     log_message("INFO", f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table", context)
 
 def write_to_log(log_level, log_message_text, **context):
+    """
+    Insert log entries into the BigQuery log table. If triggered from 'trigger_dag', insert multiple rows,
+    otherwise insert a single row.
+
+    Parameters:
+    log_level (str): The level of the log (e.g., 'Info', 'Error').
+    log_message (str): The log message to be inserted.
+    **kwargs: The argument dictionary provided by Airflow, which includes the task instance (ti).
+
+    """
     ti = context['task_instance']
     project_id = ti.xcom_pull(task_ids='get_gcp_project_id', key='project_id')
     processid_runid = ti.xcom_pull(task_ids='get_processid_runid', key='get_processid_runid')
@@ -108,6 +126,13 @@ def write_to_log(log_level, log_message_text, **context):
     log_message("INFO", f"{log_level} log was inserted to {table_log} table", context)
 
 def get_gcp_project_id(**kwargs):
+    """
+    Retrieves the current Google Cloud project ID.
+
+    Returns:
+        str: The project ID, or None if an error occurs.
+
+    """
     try:
         credentials, project_id = google.auth.default()
         log_message("INFO", f'Current gcp project id: {project_id}', kwargs)
@@ -116,6 +141,24 @@ def get_gcp_project_id(**kwargs):
         log_message("ERROR", f"Error obtaining project ID: {e}", kwargs)
 
 def get_system_params(**kwargs):
+    """
+    Fetch system parameters from the System_Params BigQuery table and push them to XCom.
+
+    This function queries the System_Params table in BigQuery to retrieve configuration parameters
+    (ParamID, ParamName, ParamValue) for the environment. It returns the parameters as a dictionary 
+    where the keys are ParamID (as strings) and the values are the corresponding ParamValue.
+    The dictionary is also pushed to XCom under the key 'system_params' for use in downstream tasks.
+
+    Parameters:
+    **kwargs: Additional keyword arguments provided by Airflow, expected to include 'ti' (task instance).
+
+    Returns:
+    dict: A dictionary of system parameters {ParamID: ParamValue}.
+
+    Raises:
+    Exception: If the query fails or if no parameters are found.
+
+    """
     project_id = kwargs['ti'].xcom_pull(task_ids='get_gcp_project_id', key='project_id')
     query = f"""
     SELECT ParamID, ParamName, ParamValue
@@ -139,6 +182,17 @@ def get_system_params(**kwargs):
         raise
 
 def get_processid_runid(**kwargs):
+    """
+    Retrieves the ProcessID and RunID from the external DAG trigger's configuration.
+    These IDs are used for tracking the job and ensuring data consistency.
+    
+    Args:
+    kwargs: context variables provided by Airflow.
+
+    Returns:
+    dict: A dictionary containing 'process_id', 'run_id' and 'file_path'
+
+    """
     try:
         process_id = kwargs['dag_run'].conf.get('ProcessID')
         run_id = kwargs['dag_run'].conf.get('RunID')
@@ -165,6 +219,17 @@ def request_data(**kwargs):
         raise
 
 def save_df_to_gcs(**kwargs):
+    """
+    Saves a Pandas DataFrame (from XCom) to a CSV file in a GCS bucket.
+
+    Required XCom:
+    - Key: 'request_data' → should be a DataFrame (serialized as JSON)
+
+    Assumes the following params exist in system_params:
+    - 'bucket_name'
+    - 'gcs_path' (e.g., 'fire_incidents/data_20250624.csv')
+    
+    """
     ti = kwargs["ti"]
     df_data = ti.xcom_pull(task_ids='request_data', key='request_data')
     system_params_dict = ti.xcom_pull(task_ids='get_system_params', key='system_params')

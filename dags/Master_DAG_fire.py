@@ -23,6 +23,19 @@ table_log ='Logs'
 table_config = "JobsConfig"
 system_params = 'SystemParams'
 
+def log_message(level, message, context=None):
+    timestamp = datetime.utcnow().isoformat()
+    task = context['task_instance'] if context else None
+    task_info = f"[{task.task_id} | {task.dag_id}]" if task else ""
+    full_message = f"[{timestamp}] [{level}] {task_info} {message}"
+
+    if level == 'INFO':
+        logging.info(full_message)
+    elif level == 'ERROR':
+        logging.error(full_message)
+    elif level == 'WARNING':
+        logging.warning(full_message)
+
 def on_task_success(context):
     task_id = context['task_instance'].task_id
     duration = context['task_instance'].duration

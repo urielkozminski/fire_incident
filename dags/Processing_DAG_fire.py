@@ -35,23 +35,28 @@ table_config = "JobsConfig"
 system_params = 'SystemParams'
 local_timezone = pytz.timezone('Asia/Jerusalem')
 
+def log_message(level, message, context=None):
+    timestamp = datetime.utcnow().isoformat()
+    task = context['task_instance'] if context else None
+    task_info = f"[{task.task_id} | {task.dag_id}]" if task else ""
+    full_message = f"[{timestamp}] [{level}] {task_info} {message}"
+
+    if level == 'INFO':
+        logging.info(full_message)
+    elif level == 'ERROR':
+        logging.error(full_message)
+    elif level == 'WARNING':
+        logging.warning(full_message)
+
 def on_task_success(context):
     task_id = context['task_instance'].task_id
     duration = context['task_instance'].duration
     try_number = context['task_instance'].try_number
-    logging.info(f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})")
+    log_message("INFO", f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})", context)
 
 def insert_failure_log_into_bq(context, **kwargs):
-    """
-    Logs the failure of a task to BigQuery.
-    This function inserts an error message into the `Log` table when any task fails.
-    
-    Args:
-    context (dict): The Airflow context, which contains information about the task and exception.
-
-    """
-    logging.info("Writing error to Log table...")
-    logging.info(f"Task has failed, task_instance_key_str: {context['task_instance_key_str']}")
+    log_message("INFO", "Writing error to Log table...", context)
+    log_message("ERROR", f"Task has failed, task_instance_key_str: {context['task_instance_key_str']}", context)
 
     ti = context['task_instance']
     project_id = ti.xcom_pull(task_ids='get_gcp_project_id', key='project_id')
@@ -64,17 +69,16 @@ def insert_failure_log_into_bq(context, **kwargs):
     logs_schema = system_params_dict['2']
 
     error_message = str(context.get('exception'))
-    logging.info(f'Error Message: {error_message}')
+    log_message("ERROR", f'Error Message: {error_message}', context)
+    log_message("INFO", f"Importing data with ProcessID: {process_id}, RunID: {run_id}", context)
 
-    logging.info(f"Importing data with ProcessID: {process_id}, RunID: {run_id}")
-
-    insert_error_query =f"""INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
-                    VALUES ({process_id}, '{run_id}', 'Error', 'Processin DAG Error', CURRENT_TIMESTAMP())
+    insert_error_query = f"""INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
+                    VALUES ({process_id}, '{run_id}', 'Error', 'Ingestion DAG Error', CURRENT_TIMESTAMP())
                     """
-    logging.info(f"Insert clause: {insert_error_query}")
+    log_message("INFO", f"Insert clause: {insert_error_query}", context)
 
     insert_log_task = BigQueryInsertJobOperator(
-        task_id='insert_failure_log_into_bq', 
+        task_id='insert_failure_log_into_bq',
         configuration={
             "query": {
                 "query": insert_error_query,
@@ -85,20 +89,9 @@ def insert_failure_log_into_bq(context, **kwargs):
         dag=context['dag']
     )
     insert_log_task.execute(context=context)
-    logging.info(f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table")
+    log_message("INFO", f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table", context)
 
-def write_to_log(log_level, log_message, **context):
-    
-    """
-    Insert log entries into the BigQuery log table. If triggered from 'trigger_dag', insert multiple rows,
-    otherwise insert a single row.
-
-    Parameters:
-    log_level (str): The level of the log (e.g., 'Info', 'Error').
-    log_message (str): The log message to be inserted.
-    **kwargs: The argument dictionary provided by Airflow, which includes the task instance (ti).
-    """
-
+def write_to_log(log_level, log_message_text, **context):
     ti = context['task_instance']
     project_id = ti.xcom_pull(task_ids='get_gcp_project_id', key='project_id')
 
@@ -106,16 +99,14 @@ def write_to_log(log_level, log_message, **context):
     process_id = processid_runid['process_id']
     run_id = processid_runid['run_id']
 
-    workflow_exec_id = ti.xcom_pull(key='workflow_invocation_id')
-
     system_params_dict = ti.xcom_pull(task_ids='get_system_params', key='system_params')
     logs_schema = system_params_dict['2']
 
     insert_log_query = f"""
-    INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime, DataFormWorkflowID)
-    VALUES ({process_id}, '{run_id}', '{log_level}', '{log_message}', CURRENT_TIMESTAMP(), { f"NULL" if workflow_exec_id is None else f"'{workflow_exec_id}'" })
+    INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
+    VALUES ({process_id}, '{run_id}', '{log_level}', '{log_message_text}', CURRENT_TIMESTAMP())
     """
-    logging.info(f"Insert clause: {insert_log_query}")
+    log_message("INFO", f"Insert clause: {insert_log_query}", context)
     insert_log_task = BigQueryInsertJobOperator(
         task_id='insert_log_into_bq',
         configuration={
@@ -128,7 +119,7 @@ def write_to_log(log_level, log_message, **context):
         dag=context['dag']
     )
     insert_log_task.execute(context=context)
-    logging.info(f"{log_level} log was inserted to {table_log} table")
+    log_message(log_level.upper(), f"{log_level} log was inserted to {table_log} table", context)
 
 def get_gcp_project_id(**kwargs):
     """
