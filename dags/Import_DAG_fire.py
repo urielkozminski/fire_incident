@@ -27,43 +27,42 @@ table_config = "JobsConfig"
 system_params = 'SystemParams'
 fire_url = 'https://data.sfgov.org/resource/wr8u-xric.json'
 
+def log_message(level, message, context=None):
+    timestamp = datetime.utcnow().isoformat()
+    task = context['task_instance'] if context else None
+    task_info = f"[{task.task_id} | {task.dag_id}]" if task else ""
+    full_message = f"[{timestamp}] [{level}] {task_info} {message}"
+
+    if level == 'INFO':
+        logging.info(full_message)
+    elif level == 'ERROR':
+        logging.error(full_message)
+    elif level == 'WARNING':
+        logging.warning(full_message)
+
 def on_task_success(context):
     task_id = context['task_instance'].task_id
     duration = context['task_instance'].duration
     try_number = context['task_instance'].try_number
-    logging.info(f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})")
+    log_message("INFO", f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})", context)
 
 def insert_failure_log_into_bq(context, **kwargs):
-    """
-    Logs the failure of a task to BigQuery.
-    This function inserts an error message into the `Log` table when any task fails.
-    
-    Args:
-    context (dict): The Airflow context, which contains information about the task and exception.
-
-    """
-    logging.info("Writing error to Log table...")
-    logging.info(f"Task has failed, task_instance_key_str: {context['task_instance_key_str']}")
+    log_message("ERROR", "Writing error to Log table...", context)
 
     ti = context['task_instance']
     project_id = ti.xcom_pull(task_ids='get_gcp_project_id', key='project_id')
-
     processid_runid = ti.xcom_pull(task_ids='get_processid_runid', key='get_processid_runid')
     process_id = processid_runid['process_id']
     run_id = processid_runid['run_id']
-
     system_params_dict = ti.xcom_pull(task_ids='get_system_params', key='system_params')
     logs_schema = system_params_dict['2']
-
     error_message = str(context.get('exception'))
-    logging.info(f'Error Message: {error_message}')
-
-    logging.info(f"Importing data with ProcessID: {process_id}, RunID: {run_id}")
+    log_message("ERROR", f"Task failed: {error_message}", context)
 
     insert_error_query =f"""INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
                     VALUES ({process_id}, '{run_id}', 'Error', 'Import DAG Error', CURRENT_TIMESTAMP())
                     """
-    logging.info(f"Insert clause: {insert_error_query}")
+    log_message("INFO", f"Insert clause: {insert_error_query}", context)
 
     insert_log_task = BigQueryInsertJobOperator(
         task_id='insert_failure_log_into_bq', 
@@ -77,35 +76,23 @@ def insert_failure_log_into_bq(context, **kwargs):
         dag=context['dag']
     )
     insert_log_task.execute(context=context)
-    logging.info(f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table")
+    log_message("INFO", f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table", context)
 
-def write_to_log(log_level, log_message, **context):
-    
-    """
-    Insert log entries into the BigQuery log table. If triggered from 'trigger_dag', insert multiple rows,
-    otherwise insert a single row.
-
-    Parameters:
-    log_level (str): The level of the log (e.g., 'Info', 'Error').
-    log_message (str): The log message to be inserted.
-    **kwargs: The argument dictionary provided by Airflow, which includes the task instance (ti).
-    """
-
+def write_to_log(log_level, log_message_text, **context):
     ti = context['task_instance']
     project_id = ti.xcom_pull(task_ids='get_gcp_project_id', key='project_id')
-
     processid_runid = ti.xcom_pull(task_ids='get_processid_runid', key='get_processid_runid')
     process_id = processid_runid['process_id']
     run_id = processid_runid['run_id']
-
     system_params_dict = ti.xcom_pull(task_ids='get_system_params', key='system_params')
     logs_schema = system_params_dict['2']
 
     insert_log_query = f"""
     INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
-    VALUES ({process_id}, '{run_id}', '{log_level}', '{log_message}', CURRENT_TIMESTAMP())
+    VALUES ({process_id}, '{run_id}', '{log_level}', '{log_message_text}', CURRENT_TIMESTAMP())
     """
-    logging.info(f"Insert clause: {insert_log_query}")
+    log_message("INFO", f"Insert clause: {insert_log_query}", context)
+
     insert_log_task = BigQueryInsertJobOperator(
         task_id='insert_log_into_bq',
         configuration={
@@ -118,156 +105,90 @@ def write_to_log(log_level, log_message, **context):
         dag=context['dag']
     )
     insert_log_task.execute(context=context)
-    logging.info(f"{log_level} log was inserted to {table_log} table")
-
+    log_message("INFO", f"{log_level} log was inserted to {table_log} table", context)
 
 def get_gcp_project_id(**kwargs):
-    """
-    Retrieves the current Google Cloud project ID.
-
-    Returns:
-        str: The project ID, or None if an error occurs.
-    """
     try:
         credentials, project_id = google.auth.default()
-        logging.info(f'Current gcp project id: {project_id}')
+        log_message("INFO", f'Current gcp project id: {project_id}', kwargs)
         kwargs['ti'].xcom_push(key='project_id', value=project_id)
     except google.auth.exceptions.GoogleAuthError as e:
-        logging.error(f"Error obtaining project ID: {e}")
-        logging.error("Please ensure that you have authenticated properly. "
-              "This usually involves setting the GOOGLE_APPLICATION_CREDENTIALS environment variable "
-              "or running 'gcloud auth application-default login'.")
+        log_message("ERROR", f"Error obtaining project ID: {e}", kwargs)
 
 def get_system_params(**kwargs):
-    """
-    Fetch system parameters from the System_Params BigQuery table and push them to XCom.
-
-    This function queries the System_Params table in BigQuery to retrieve configuration parameters
-    (ParamID, ParamName, ParamValue) for the environment. It returns the parameters as a dictionary 
-    where the keys are ParamID (as strings) and the values are the corresponding ParamValue.
-    The dictionary is also pushed to XCom under the key 'system_params' for use in downstream tasks.
-
-    Parameters:
-    **kwargs: Additional keyword arguments provided by Airflow, expected to include 'ti' (task instance).
-
-    Returns:
-    dict: A dictionary of system parameters {ParamID: ParamValue}.
-
-    Raises:
-    Exception: If the query fails or if no parameters are found.
-    """
-
     project_id = kwargs['ti'].xcom_pull(task_ids='get_gcp_project_id', key='project_id')
-
     query = f"""
     SELECT ParamID, ParamName, ParamValue
     FROM `{project_id}.{enviroment_dataset}.{system_params}`
     """
-    logging.info(f'Executing query: {query}')
+    log_message("INFO", f'Executing query: {query}', kwargs)
     try:
         rows = pandas_gbq.read_gbq(query, project_id=project_id)
-        logging.info(f'Query output: {rows.to_string(index=False)}')
+        log_message("INFO", f'Query output: {rows.to_string(index=False)}', kwargs)
         if rows.empty:
             raise Exception(f"No record found in System_Params table")
 
         rows_dict = rows.to_dict(orient='records')
-        logging.info(rows_dict)
-
         params_dict = {str(param['ParamID']): param['ParamValue'] for param in rows_dict}
-
-        logging.info(f'System Params: {params_dict}')
+        log_message("INFO", f'System Params: {params_dict}', kwargs)
         kwargs['ti'].xcom_push(key='system_params', value=params_dict)
         return params_dict
 
     except Exception as e:
-        logging.error(f"Error fetching system params: {e}")
-        raise Exception(f"Error fetching system params: {e}")
-        
+        log_message("ERROR", f"Error fetching system params: {e}", kwargs)
+        raise
+
 def get_processid_runid(**kwargs):
-
-    """
-    Retrieves the ProcessID and RunID from the external DAG trigger's configuration.
-    These IDs are used for tracking the job and ensuring data consistency.
-    
-    Args:
-    kwargs: context variables provided by Airflow.
-
-    Returns:
-    dict: A dictionary containing 'process_id', 'run_id' and 'file_path'
-    """
     try:
         process_id = kwargs['dag_run'].conf.get('ProcessID')
         run_id = kwargs['dag_run'].conf.get('RunID')
-
         process_id = 20
         run_id = 'aaa202020'
-
-        get_processid_runid = {"process_id": process_id, "run_id": run_id}
-        logging.info(f"Importing data with ProcessID: {process_id}, RunID: {run_id}")
-        kwargs['ti'].xcom_push(key='get_processid_runid', value=get_processid_runid)
-        logging.info(f"Pushing to XCom: {get_processid_runid}")
-    
+        result = {"process_id": process_id, "run_id": run_id}
+        log_message("INFO", f"Importing data with ProcessID: {process_id}, RunID: {run_id}", kwargs)
+        kwargs['ti'].xcom_push(key='get_processid_runid', value=result)
     except Exception as e:
-        logging.error("Missing ProcessID or RunID.")
-        raise Exception("Missing ProcessID or RunID.")
+        log_message("ERROR", "Missing ProcessID or RunID.", kwargs)
+        raise
 
 def request_data(**kwargs):
     try:
-        print("🔄 Fetching data from API...")
+        log_message("INFO", "🔄 Fetching data from API...", kwargs)
         response = requests.get(fire_url)
-        response.raise_for_status()  # Raise error for HTTP errors
-
+        response.raise_for_status()
         data = response.json()
         df = pd.DataFrame(data)
-
-        print(f"✅ Fetched {len(df)} records")
+        log_message("INFO", f"✅ Fetched {len(df)} records", kwargs)
         kwargs['ti'].xcom_push(key='request_data', value=df)
-        logging.info(f"Pushing df to XCom...")
-
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error fetching data from {fire_url}")
-        raise Exception(f"❌ Error fetching data: {e}")
-
+        log_message("ERROR", f"Error fetching data from {fire_url}: {e}", kwargs)
+        raise
 
 def save_df_to_gcs(**kwargs):
-    """
-    Saves a Pandas DataFrame (from XCom) to a CSV file in a GCS bucket.
-
-    Required XCom:
-    - Key: 'request_data' → should be a DataFrame (serialized as JSON)
-
-    Assumes the following params exist in system_params:
-    - 'bucket_name'
-    - 'gcs_path' (e.g., 'fire_incidents/data_20250624.csv')
-    """
-
     ti = kwargs["ti"]
-
     df_data = ti.xcom_pull(task_ids='request_data', key='request_data')
     system_params_dict = ti.xcom_pull(task_ids='get_system_params', key='system_params')
-
     bucket_name = system_params_dict['6']
 
     if df_data.empty:
         raise ValueError("❌ No data pulled from XCom for key 'request_data'")
 
     df = pd.DataFrame(df_data)
+    log_message("INFO", f"Saving {df.shape[0]} rows to GCS", kwargs)
 
     if not bucket_name:
         raise ValueError("❌ 'bucket_name' is missing in system parameters")
 
-    # Convert DF to CSV in memory
     csv_buffer = StringIO()
     df.to_csv(csv_buffer, index=False)
     csv_buffer.seek(0)
 
-    # Upload to GCS
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob("fire_incidents.csv")
     blob.upload_from_string(csv_buffer.getvalue(), content_type='text/csv')
 
-    logging.info(f"✅ CSV uploaded to: gs://{bucket_name}")
+    log_message("INFO", f"✅ CSV uploaded to: gs://{bucket_name}", kwargs)
 
 
 default_args = {
