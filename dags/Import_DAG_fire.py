@@ -18,14 +18,10 @@ import requests
 import pytz
 from google.cloud import storage
 from io import StringIO
+from Configs.config import enviroment_dataset, table_log, system_params, fire_url
 
 DAG_ID = 'Import_DAG_fire'
-#enviroment_dataset = Variable.get('Environment_Dataset')
-enviroment_dataset = 'fire_inc_env'
-table_log ='Logs'
-table_config = "JobsConfig"
-system_params = 'SystemParams'
-fire_url = 'https://data.sfgov.org/resource/wr8u-xric.json'
+local_timezone = pytz.timezone('Asia/Jerusalem')
 
 def log_message(level, message, context=None):
     timestamp = datetime.utcnow().isoformat()

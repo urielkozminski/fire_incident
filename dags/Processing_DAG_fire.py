@@ -24,15 +24,10 @@ from io import StringIO
 from googleapiclient.errors import HttpError
 import google.auth
 from airflow.exceptions import AirflowException
+from Configs.config import enviroment_dataset, table_log, system_params, table_config
 
 DAG_ID = 'Processing_DAG_fire'
 REGION = 'me-west1'
-
-#enviroment_dataset = Variable.get('Environment_Dataset')
-enviroment_dataset = 'fire_inc_env'
-table_log ='Logs'
-table_config = "JobsConfig"
-system_params = 'SystemParams'
 local_timezone = pytz.timezone('Asia/Jerusalem')
 
 def log_message(level, message, context=None):

@@ -15,13 +15,9 @@ import google.auth
 from croniter import croniter
 from datetime import datetime, timezone as dt_timezone
 from datetime import datetime, timedelta
+from Configs.config import enviroment_dataset, table_log, system_params
 
 DAG_ID = 'Master_DAG_fire'
-
-enviroment_dataset = 'fire_inc_env'
-table_log ='Logs'
-table_config = "JobsConfig"
-system_params = 'SystemParams'
 
 def log_message(level, message, context=None):
     timestamp = datetime.utcnow().isoformat()

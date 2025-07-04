@@ -16,13 +16,9 @@ import os
 import pytz
 from google.cloud import storage
 from io import StringIO
+from Configs.config import enviroment_dataset, table_log, system_params
 
 DAG_ID = 'Ingestion_DAG_fire'
-#enviroment_dataset = Variable.get('Environment_Dataset')
-enviroment_dataset = 'fire_inc_env'
-table_log ='Logs'
-table_config = "JobsConfig"
-system_params = 'SystemParams'
 local_timezone = pytz.timezone('Asia/Jerusalem')
 
 def log_message(level, message, context=None):
