@@ -42,7 +42,7 @@ def on_task_success(context):
     task_id = context['task_instance'].task_id
     duration = context['task_instance'].duration
     try_number = context['task_instance'].try_number
-    logging.info(f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})")
+    log_message("INFO", f"✅ Task {task_id} succeeded in {duration:.2f}s (Retries: {try_number})", context)
 
 def insert_failure_log_into_bq(context, **kwargs):
     """
@@ -53,8 +53,8 @@ def insert_failure_log_into_bq(context, **kwargs):
     context (dict): The Airflow context, which contains information about the task and exception.
 
     """
-    logging.info("Writing error to Log table...")
-    logging.info(f"Task has failed, task_instance_key_str: {context['task_instance_key_str']}")
+    log_message("INFO", "Writing error to Log table...", context)
+    log_message("ERROR", f"Task has failed, task_instance_key_str: {context['task_instance_key_str']}", context)
 
     ti = context['task_instance']
     project_id = ti.xcom_pull(task_ids='get_gcp_project_id', key='project_id')
@@ -67,14 +67,13 @@ def insert_failure_log_into_bq(context, **kwargs):
     logs_schema = system_params_dict['2']
 
     error_message = str(context.get('exception'))
-    logging.info(f'Error Message: {error_message}')
-
-    logging.info(f"Importing data with ProcessID: {process_id}, RunID: {run_id}")
+    log_message("ERROR", f"Error Message: {error_message}", context)
+    log_message("INFO", f"Importing data with ProcessID: {process_id}, RunID: {run_id}", context)
 
     insert_error_query =f"""INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
                     VALUES ({process_id}, '{run_id}', 'Error', 'Ingestion DAG Error', CURRENT_TIMESTAMP())
                     """
-    logging.info(f"Insert clause: {insert_error_query}")
+    log_message("INFO", f"Insert clause: {insert_error_query}", context)
 
     insert_log_task = BigQueryInsertJobOperator(
         task_id='insert_failure_log_into_bq', 
@@ -88,9 +87,10 @@ def insert_failure_log_into_bq(context, **kwargs):
         dag=context['dag']
     )
     insert_log_task.execute(context=context)
-    logging.info(f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table")
+    log_message("INFO", f"Error log was inserted to {project_id}.{logs_schema}.{table_log} table", context)
 
-def write_to_log(log_level, log_message, **context):
+
+def write_to_log(log_level, log_message_text, **context):
     
     """
     Insert log entries into the BigQuery log table. If triggered from 'trigger_dag', insert multiple rows,
@@ -114,9 +114,9 @@ def write_to_log(log_level, log_message, **context):
 
     insert_log_query = f"""
     INSERT INTO `{project_id}.{logs_schema}.{table_log}` (ProcessID, RunID, Level, Info, LogTime)
-    VALUES ({process_id}, '{run_id}', '{log_level}', '{log_message}', CURRENT_TIMESTAMP())
+    VALUES ({process_id}, '{run_id}', '{log_level}', '{log_message_text}', CURRENT_TIMESTAMP())
     """
-    logging.info(f"Insert clause: {insert_log_query}")
+    log_message("INFO", f"Insert clause: {insert_log_query}", context)
     insert_log_task = BigQueryInsertJobOperator(
         task_id='insert_log_into_bq',
         configuration={
@@ -129,7 +129,7 @@ def write_to_log(log_level, log_message, **context):
         dag=context['dag']
     )
     insert_log_task.execute(context=context)
-    logging.info(f"{log_level} log was inserted to {table_log} table")
+    log_message(log_level, f"{log_level} log was inserted to {table_log} table", context)
 
 def get_gcp_project_id(**kwargs):
     """
@@ -140,13 +140,10 @@ def get_gcp_project_id(**kwargs):
     """
     try:
         credentials, project_id = google.auth.default()
-        logging.info(f'Current gcp project id: {project_id}')
+        log_message("INFO", f"Current gcp project id: {project_id}", kwargs)
         kwargs['ti'].xcom_push(key='project_id', value=project_id)
     except google.auth.exceptions.GoogleAuthError as e:
-        logging.error(f"Error obtaining project ID: {e}")
-        logging.error("Please ensure that you have authenticated properly. "
-              "This usually involves setting the GOOGLE_APPLICATION_CREDENTIALS environment variable "
-              "or running 'gcloud auth application-default login'.")
+        log_message("ERROR", f"Error obtaining project ID: {e}", kwargs)
 
 def get_system_params(**kwargs):
     """
@@ -173,24 +170,24 @@ def get_system_params(**kwargs):
     SELECT ParamID, ParamName, ParamValue
     FROM `{project_id}.{enviroment_dataset}.{system_params}`
     """
-    logging.info(f'Executing query: {query}')
+    log_message("INFO", f"Executing query: {query}", kwargs)
     try:
         rows = pandas_gbq.read_gbq(query, project_id=project_id)
-        logging.info(f'Query output: {rows.to_string(index=False)}')
+        log_message("INFO", f"Query output: {rows.to_string(index=False)}", kwargs)
         if rows.empty:
             raise Exception(f"No record found in System_Params table")
 
         rows_dict = rows.to_dict(orient='records')
-        logging.info(rows_dict)
+        log_message("INFO", str(rows_dict), kwargs)
 
         params_dict = {str(param['ParamID']): param['ParamValue'] for param in rows_dict}
 
-        logging.info(f'System Params: {params_dict}')
+        log_message("INFO", f"System Params: {params_dict}", kwargs)
         kwargs['ti'].xcom_push(key='system_params', value=params_dict)
         return params_dict
 
     except Exception as e:
-        logging.error(f"Error fetching system params: {e}")
+        log_message("ERROR", f"Error fetching system params: {e}", kwargs)
         raise Exception(f"Error fetching system params: {e}")
         
 def get_processid_runid(**kwargs):
@@ -213,12 +210,11 @@ def get_processid_runid(**kwargs):
         run_id = 'aaa101010'
 
         get_processid_runid = {"process_id": process_id, "run_id": run_id}
-        logging.info(f"Importing data with ProcessID: {process_id}, RunID: {run_id}")
+        log_message("INFO", f"Importing data with ProcessID: {process_id}, RunID: {run_id}", kwargs)
         kwargs['ti'].xcom_push(key='get_processid_runid', value=get_processid_runid)
-        logging.info(f"Pushing to XCom: {get_processid_runid}")
-    
+        log_message("INFO", f"Pushing to XCom: {get_processid_runid}", kwargs)
     except Exception as e:
-        logging.error("Missing ProcessID or RunID.")
+        log_message("ERROR", "Missing ProcessID or RunID.", kwargs)
         raise Exception("Missing ProcessID or RunID.")
 
 def import_gcs_to_bq(**kwargs):
@@ -244,20 +240,21 @@ def import_gcs_to_bq(**kwargs):
     try:
         load_csv_to_bigquery = GCSToBigQueryOperator(
             task_id='load_csv_to_bigquery',
-            bucket=bucket_name,  # or hardcode like 'my-bucket'
-            source_objects=["fire_incidents.csv"],  # relative to the bucket
+            bucket=bucket_name,
+            source_objects=["fire_incidents.csv"],
             destination_project_dataset_table=f"{project_id}.{fire_bronze}.fire_incident_stg",
             source_format='CSV',
             skip_leading_rows=1,
-            write_disposition='WRITE_TRUNCATE',  # Overwrite if exists
+            write_disposition='WRITE_TRUNCATE',
             autodetect=True,
             field_delimiter=",",
             dag=kwargs['dag']
         )
         load_csv_to_bigquery.execute(context=kwargs)
     except Exception as e:
+        log_message("ERROR", f"Error Importing CSV to BigQuery: {e}", kwargs)
         raise Exception(f"Error Importing CSV to BigQuery: {e}")
-    logging.info('Loading Succeed!')
+    log_message("INFO", "Loading Succeed!", kwargs)
 
 def depuplicated_table(**kwargs):
      
@@ -346,29 +343,20 @@ def depuplicated_table(**kwargs):
 
     try:
         deduplication_table = BigQueryInsertJobOperator(
-        task_id='deduplicate_and_merge',
-        configuration={
-            "query": {
-                "query": query_deduplication,
-                #f"""
-                #    CREATE OR REPLACE TABLE `{project_id}.{fire_bronze}.fire_incident` AS
-                #    SELECT *
-                #    FROM (
-                #    SELECT *,
-                #            ROW_NUMBER() OVER (PARTITION BY ID ORDER BY incident_date DESC) AS row_num
-                #    FROM `{project_id}.{fire_bronze}.fire_incident_stg`
-                #    )
-                #    WHERE row_num = 1
-                #""",
-                "useLegacySql": False,
-            }
-        },
-        gcp_conn_id='google_cloud_default',
+            task_id='deduplicate_and_merge',
+            configuration={
+                "query": {
+                    "query": query_deduplication,
+                    "useLegacySql": False
+                }
+            },
+            gcp_conn_id='google_cloud_default',
         )
         deduplication_table.execute(context=kwargs)
     except Exception as e:
+        log_message("ERROR", f"Error Deduplicating Table: {e}", kwargs)
         raise Exception(f"Error Deduplicating Table: {e}")
-    logging.info('Deduplication Loading Succeed!')
+    log_message("INFO", "Deduplication Loading Succeed!", kwargs)
 
 default_args = {
     'owner': 'airflow',

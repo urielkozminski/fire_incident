@@ -228,7 +228,7 @@ def save_df_to_gcs(**kwargs):
     Assumes the following params exist in system_params:
     - 'bucket_name'
     - 'gcs_path' (e.g., 'fire_incidents/data_20250624.csv')
-    
+
     """
     ti = kwargs["ti"]
     df_data = ti.xcom_pull(task_ids='request_data', key='request_data')
