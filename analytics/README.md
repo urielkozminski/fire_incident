@@ -3,13 +3,13 @@ Analytics Queries explanation:
 
 1. daily_incident_count_by_weekday
 
-What it does:
+Explanation:
     This query calculates the total number of fire incidents aggregated by each day of the week (Sunday=1, Saturday=7).
 
-Why its important:
+Insight:
     Understanding incident patterns by weekday helps identify if there are specific days with consistently higher or lower fire activity. This can reflect social behavior patterns, staffing needs, or risk factors.
 
-How this information can help:
+Impact:
 
     Fire departments can optimize resource allocation and scheduling based on peak days.
 
@@ -20,13 +20,13 @@ How this information can help:
 
 2. response_time_distribution
 
-What it does:
+Explanation:
     This query groups days into buckets based on the average fire response time in seconds and counts how many days fall into each bucket.
 
-Why its important:
+Insight:
     Response time is a critical metric for emergency services, impacting outcomes and safety. Categorizing days by response time buckets highlights how often the department meets response targets or experiences delays.
 
-How this information can help:
+Impact:
 
     Identify if most days have quick response times or if delays are common.
 
@@ -37,13 +37,13 @@ How this information can help:
 
 3. top_5_neighborhood_per_month_by_incident_count:
 
-What it does:
+Explanation:
     This query ranks neighborhoods monthly by their number of fire incidents and returns the top 5 neighborhoods with the highest incident counts for each month.
 
-Why it’s important:
+Insight:
     Identifying neighborhoods with frequent incidents helps focus prevention efforts, allocate firefighting resources, and engage local communities.
 
-How this information can help:
+Impact:
 
     Prioritize neighborhoods for fire safety inspections or outreach programs.
 
@@ -54,13 +54,13 @@ How this information can help:
 
 4. top_10_cities_with_most_fatalities:
 
-What it does:
+Explanation:
     This query retrieves the top 10 cities with the highest total number of fire-related fatalities and the number of incidents involving fatalities.
 
-Why it’s important:
+Insight:
     Fatalities are the most severe outcome of fire incidents. Highlighting cities with high fatality counts signals where urgent attention is required.
 
-How this information can help:
+Impact:
 
     Direct fire prevention and education programs to cities with high fatality rates.
 
@@ -71,13 +71,13 @@ How this information can help:
 
 5. trend_incidents_yoy:
 
-What it does:
+Explanation:
     This query counts total fire incidents per year, showing the year-over-year trend.
 
-Why it’s important:
+Insight:
     Analyzing incident trends over multiple years reveals whether fire incidents are increasing, stable, or declining.
 
-How this information can help:
+Impact:
 
     Evaluate effectiveness of fire prevention policies over time.
 
